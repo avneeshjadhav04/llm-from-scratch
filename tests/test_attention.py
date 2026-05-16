@@ -6,36 +6,17 @@ from model.transformer import CausalSelfAttention
 
 
 def get_test_config():
-    return Config(
-        vocab_size=100,
-        d_model=64,
-        n_layers=2,
-        n_heads=4,
-        d_ff=256,
-        max_seq_len=32,
-        dropout=0.0,
-        batch_size=4,
-        grad_accum_steps=1,
-        learning_rate=1e-3,
-        weight_decay=0.01,
-        max_steps=100,
-        warmup_steps=10,
-        eval_interval=50,
-        eval_iters=10,
-        checkpoint_interval=100,
-        train_split=0.9,
-        num_tokens_to_train=10000,
-        max_new_tokens=50,
-        temperature=1.0,
-        top_k=10,
-        device="cpu",
-        dtype="float32",
-        compile_model=False,
-        data_dir="data",
-        checkpoint_dir="checkpoints",
-        log_dir="logs",
-        dataset_name="wikitext-2",
-    )
+    cfg = Config()
+    cfg.vocab_size = 100
+    cfg.d_model = 64
+    cfg.n_layers = 2
+    cfg.n_heads = 4
+    cfg.d_ff = 256
+    cfg.max_seq_len = 32
+    cfg.dropout = 0.0
+    cfg.gradient_checkpointing = False
+    cfg.device = "cpu"
+    return cfg
 
 
 def test_causal_mask():

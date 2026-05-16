@@ -3,19 +3,25 @@ import os
 import argparse
 import torch
 import torch.optim as optim
-from config import get_config, add_config_args, apply_config_overrides
+from config import Config, parse_args
 from data.dataset import get_dataloaders
 from model.transformer import Transformer
 from utils.training import CheckpointManager, Logger, Trainer
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train LLM from scratch")
-    add_config_args(parser)
-    args = parser.parse_args()
-
-    config = get_config(args.config)
-    config = apply_config_overrides(config, args)
+    config = Config()
+    args = parse_args()
+    if args.device is not None:
+        config.device = args.device
+    if args.batch_size is not None:
+        config.batch_size = args.batch_size
+    if args.learning_rate is not None:
+        config.learning_rate = args.learning_rate
+    if args.max_steps is not None:
+        config.max_steps = args.max_steps
+    if args.compile is not None:
+        config.compile_model = args.compile
 
     # Device setup
     device = config.device if torch.cuda.is_available() else "cpu"
@@ -46,7 +52,7 @@ def main():
     os.makedirs(config.checkpoint_dir, exist_ok=True)
     os.makedirs(config.log_dir, exist_ok=True)
     checkpoint_manager = CheckpointManager(config.checkpoint_dir)
-    logger = Logger(config.log_dir, config_name=str(config.vocab_size))
+    logger = Logger(config.log_dir, config_name="100m")
 
     # Resume from checkpoint if available
     start_step = 0

@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 from config import Config
 
 
@@ -134,7 +135,7 @@ class Transformer(nn.Module):
         n_params = sum(p.numel() for p in self.parameters())
         return n_params
 
-    def forward(self, idx, targets=None):
+    def _forward_impl(self, idx, targets=None):
         device = idx.device
         b, t = idx.size()
         assert t <= self.config.max_seq_len, f"Sequence length {t} exceeds maximum {self.config.max_seq_len}"
@@ -146,7 +147,10 @@ class Transformer(nn.Module):
         x = self.drop(tok_emb + pos_emb)
 
         for block in self.blocks:
-            x = block(x)
+            if self.config.gradient_checkpointing and self.training:
+                x = checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
 
         x = self.ln_f(x)
         logits = self.lm_head(x)  # (b, t, vocab_size)
@@ -156,6 +160,9 @@ class Transformer(nn.Module):
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
 
         return logits, loss
+
+    def forward(self, idx, targets=None):
+        return self._forward_impl(idx, targets)
 
     def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
         """Generate tokens given a prompt."""

@@ -2,7 +2,7 @@
 import os
 import argparse
 import torch
-from config import get_config, add_config_args, apply_config_overrides
+from config import Config
 from data.tokenizer import BPETokenizer
 from model.transformer import Transformer
 from utils.training import CheckpointManager
@@ -11,17 +11,18 @@ from utils.sampling import generate_text
 
 def main():
     parser = argparse.ArgumentParser(description="Generate text from LLM")
-    add_config_args(parser)
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint file")
     parser.add_argument("--prompt", type=str, default="The future of artificial intelligence is", help="Generation prompt")
     parser.add_argument("--max_new_tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--top_p", type=float, default=1.0)
+    parser.add_argument("--device", type=str, default=None, help="Override device")
     args = parser.parse_args()
 
-    config = get_config(args.config)
-    config = apply_config_overrides(config, args)
+    config = Config()
+    if args.device is not None:
+        config.device = args.device
 
     device = config.device if torch.cuda.is_available() else "cpu"
     config.device = device

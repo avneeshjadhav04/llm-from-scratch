@@ -1,21 +1,18 @@
 """Prepare data: download corpus, train BPE tokenizer, and save tokenized binaries."""
 import os
 import argparse
-from config import get_config, add_config_args, apply_config_overrides
+from config import Config
 from data.tokenizer import BPETokenizer
 from data.dataset import prepare_wikitext2, load_text_files, tokenize_and_save_corpus
 
 
 def main():
     parser = argparse.ArgumentParser(description="Prepare data for LLM training")
-    add_config_args(parser)
     parser.add_argument("--data_dir", type=str, default="data")
     parser.add_argument("--vocab_size", type=int, default=None)
     args = parser.parse_args()
 
-    config = get_config(args.config)
-    config = apply_config_overrides(config, args)
-
+    config = Config()
     vocab_size = args.vocab_size or config.vocab_size
     data_dir = args.data_dir
     os.makedirs(data_dir, exist_ok=True)
