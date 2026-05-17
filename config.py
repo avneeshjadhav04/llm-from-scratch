@@ -38,7 +38,7 @@ class Config:
     # System
     device: str = "cuda"
     dtype: str = "float16"
-    compile_model: bool = True
+    compile_model: bool = False
     gradient_checkpointing: bool = True
 
     # Paths

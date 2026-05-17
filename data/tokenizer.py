@@ -70,8 +70,22 @@ class BPETokenizer:
             prev_char = char
         return pairs
 
+    def _merge_word(self, word: Tuple[str, ...], pair: Tuple[str, str]) -> Tuple[str, ...]:
+        """Merge all occurrences of a pair in a word (linear scan)."""
+        first, second = pair
+        new_word = []
+        i = 0
+        while i < len(word):
+            if i < len(word) - 1 and word[i] == first and word[i + 1] == second:
+                new_word.append(first + second)
+                i += 2
+            else:
+                new_word.append(word[i])
+                i += 1
+        return tuple(new_word)
+
     def train(self, text: str) -> None:
-        """Train BPE on the given text corpus."""
+        """Train BPE on the given text corpus using an efficient incremental algorithm."""
         print("Pre-tokenizing text...")
         word_tokens = self._get_word_tokens(text)
 
@@ -96,34 +110,75 @@ class BPETokenizer:
         print(f"Base vocab size: {len(base_vocab)}, Target vocab size: {self.vocab_size}")
         print(f"Training {num_merges} BPE merges...")
 
-        for i in range(num_merges):
-            pairs = {}
-            for word, freq in word_freqs.items():
-                word_pairs = self._get_pairs(word)
-                for pair, count in word_pairs.items():
-                    pairs[pair] = pairs.get(pair, 0) + count * freq
+        # --- Efficient BPE: maintain pair counts incrementally ---
+        # Map each word to its current tokenization
+        current_words = {word: list(word) for word in word_freqs}
 
-            if not pairs:
+        # Build initial pair counts
+        pair_counts: Dict[Tuple[str, str], int] = {}
+        for word, freq in word_freqs.items():
+            tokens = current_words[word]
+            for j in range(len(tokens) - 1):
+                pair = (tokens[j], tokens[j + 1])
+                pair_counts[pair] = pair_counts.get(pair, 0) + freq
+
+        for i in range(num_merges):
+            if not pair_counts:
                 break
 
-            best_pair = max(pairs, key=pairs.get)
+            # Find best pair
+            best_pair = max(pair_counts, key=pair_counts.get)
             self.merges.append(best_pair)
+            new_token = best_pair[0] + best_pair[1]
 
-            # Merge the best pair in all words
-            new_word_freqs = {}
-            for word in word_freqs:
-                new_word = self._merge_word(word, best_pair)
-                new_word_freqs[new_word] = new_word_freqs.get(new_word, 0) + word_freqs[word]
-            word_freqs = new_word_freqs
+            # Update words that contain best_pair and recompute pair counts
+            words_to_update = []
+            for word, tokens in current_words.items():
+                # Check if best_pair exists in tokens
+                has_pair = False
+                for j in range(len(tokens) - 1):
+                    if tokens[j] == best_pair[0] and tokens[j + 1] == best_pair[1]:
+                        has_pair = True
+                        break
+                if has_pair:
+                    words_to_update.append(word)
+
+            for word in words_to_update:
+                tokens = current_words[word]
+                freq = word_freqs[word]
+
+                # Subtract old pair counts for this word
+                for j in range(len(tokens) - 1):
+                    pair = (tokens[j], tokens[j + 1])
+                    pair_counts[pair] -= freq
+                    if pair_counts[pair] == 0:
+                        del pair_counts[pair]
+
+                # Perform merge
+                new_tokens = []
+                j = 0
+                while j < len(tokens):
+                    if j < len(tokens) - 1 and tokens[j] == best_pair[0] and tokens[j + 1] == best_pair[1]:
+                        new_tokens.append(new_token)
+                        j += 2
+                    else:
+                        new_tokens.append(tokens[j])
+                        j += 1
+
+                current_words[word] = new_tokens
+
+                # Add new pair counts for this word
+                for j in range(len(new_tokens) - 1):
+                    pair = (new_tokens[j], new_tokens[j + 1])
+                    pair_counts[pair] = pair_counts.get(pair, 0) + freq
 
             # Add merged token to vocab
-            merged_token = best_pair[0] + best_pair[1]
-            if merged_token not in self.vocab:
+            if new_token not in self.vocab:
                 idx = len(self.vocab)
-                self.vocab[merged_token] = idx
-                self.inverse_vocab[idx] = merged_token
+                self.vocab[new_token] = idx
+                self.inverse_vocab[idx] = new_token
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 500 == 0:
                 print(f"  Merge {i+1}/{num_merges} complete. Vocab size: {len(self.vocab)}")
 
         # Add special tokens
@@ -133,44 +188,50 @@ class BPETokenizer:
 
         print(f"Training complete. Final vocab size: {len(self.vocab)}")
 
-    def _merge_word(self, word: Tuple[str, ...], pair: Tuple[str, str]) -> Tuple[str, ...]:
-        """Merge all occurrences of a pair in a word."""
-        first, second = pair
-        new_word = []
-        i = 0
-        while i < len(word):
-            try:
-                j = word.index(first, i)
-                new_word.extend(word[i:j])
-                i = j
-            except ValueError:
-                new_word.extend(word[i:])
-                break
+    def _encode_word(self, word: Tuple[str, ...]) -> List[int]:
+        """Encode a single pre-tokenized word using greedy BPE merging."""
+        # Build merge rank lookup for fast access
+        if not hasattr(self, '_merge_rank'):
+            self._merge_rank: Dict[Tuple[str, str], int] = {
+                pair: i for i, pair in enumerate(self.merges)
+            }
 
-            if i < len(word) - 1 and word[i] == first and word[i + 1] == second:
-                new_word.append(first + second)
-                i += 2
+        tokens = list(word)
+        while len(tokens) >= 2:
+            # Find the pair with the best (lowest) merge rank
+            best_rank = None
+            best_idx = -1
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                rank = self._merge_rank.get(pair)
+                if rank is not None and (best_rank is None or rank < best_rank):
+                    best_rank = rank
+                    best_idx = i
+
+            if best_idx == -1:
+                break  # No more merges possible
+
+            # Merge the best pair
+            merged = tokens[best_idx] + tokens[best_idx + 1]
+            tokens = tokens[:best_idx] + [merged] + tokens[best_idx + 2:]
+
+        ids = []
+        for t in tokens:
+            if t in self.vocab:
+                ids.append(self.vocab[t])
             else:
-                new_word.append(word[i])
-                i += 1
-        return tuple(new_word)
+                # Unknown token - encode as individual bytes
+                for byte in t.encode("utf-8"):
+                    char = BYTES_TO_UNICODE[byte]
+                    ids.append(self.vocab.get(char, self.special_tokens["<|endoftext|>"]))
+        return ids
 
     def encode(self, text: str) -> List[int]:
         """Encode text into token IDs."""
         word_tokens = self._get_word_tokens(text)
         token_ids = []
         for word in word_tokens:
-            word = tuple(word)
-            for pair in self.merges:
-                word = self._merge_word(word, pair)
-            for token in word:
-                if token in self.vocab:
-                    token_ids.append(self.vocab[token])
-                else:
-                    # Unknown token - encode as individual bytes
-                    for byte in token.encode("utf-8"):
-                        char = BYTES_TO_UNICODE[byte]
-                        token_ids.append(self.vocab.get(char, self.special_tokens["<|endoftext|>"]))
+            token_ids.extend(self._encode_word(tuple(word)))
         return token_ids
 
     def decode(self, token_ids: List[int]) -> str:

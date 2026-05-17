@@ -20,23 +20,24 @@ def get_lr(step, warmup_steps, max_steps, max_lr, min_lr=0.0):
 
 
 class CheckpointManager:
-    def __init__(self, checkpoint_dir: str):
+    def __init__(self, checkpoint_dir: str, config_name: str = "default"):
         self.checkpoint_dir = checkpoint_dir
+        self.config_name = config_name
         os.makedirs(checkpoint_dir, exist_ok=True)
 
-    def save(self, step, model, optimizer, loss, config_name="default"):
+    def save(self, step, model, optimizer, loss):
         checkpoint = {
             "step": step,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": loss,
         }
-        path = os.path.join(self.checkpoint_dir, f"{config_name}_step_{step}.pt")
+        path = os.path.join(self.checkpoint_dir, f"{self.config_name}_step_{step}.pt")
         torch.save(checkpoint, path)
         print(f"Checkpoint saved to {path}")
 
     def load(self, path, model, optimizer=None, device="cpu"):
-        checkpoint = torch.load(path, map_location=device)
+        checkpoint = torch.load(path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint["model_state_dict"])
         if optimizer is not None and "optimizer_state_dict" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -51,14 +52,24 @@ class Logger:
         self.csv_path = os.path.join(log_dir, f"{config_name}_training_log.csv")
         self.fieldnames = ["step", "train_loss", "val_loss", "lr", "time_ms", "tokens_per_sec"]
 
-        # Create CSV with headers
-        with open(self.csv_path, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-            writer.writeheader()
-
         self.losses = []
         self.val_losses = []
         self.steps = []
+
+        if os.path.exists(self.csv_path):
+            # Resume: load existing metrics for plotting
+            with open(self.csv_path, "r", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self.steps.append(int(row["step"]))
+                    self.losses.append(float(row["train_loss"]))
+                    if row.get("val_loss"):
+                        self.val_losses.append(float(row["val_loss"]))
+        else:
+            # Create CSV with headers
+            with open(self.csv_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
 
     def log(self, step, train_loss, val_loss, lr, time_ms, tokens_per_sec):
         row = {
@@ -109,7 +120,7 @@ class Trainer:
         self.best_val_loss = float("inf")
 
         # Mixed precision scaler
-        self.scaler = torch.cuda.amp.GradScaler() if config.dtype == "float16" and config.device == "cuda" else None
+        self.scaler = torch.amp.GradScaler('cuda') if config.dtype == "float16" and config.device == "cuda" else None
 
     def train(self, train_loader, val_loader):
         self.model.train()
@@ -203,7 +214,7 @@ class Trainer:
                 break
             x = x.to(self.config.device)
             y = y.to(self.config.device)
-            with torch.cuda.amp.autocast(enabled=self.scaler is not None):
+            with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
                 logits, loss = self.model(x, y)
             losses.append(loss.item())
         mean_loss = sum(losses) / len(losses)

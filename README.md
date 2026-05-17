@@ -375,7 +375,24 @@ On **Wikitext-2** with the 100M configuration:
 
 > These are approximate targets. Actual loss depends on corpus quality and training dynamics.
 
-### Sample Generation (After 50K Steps)
+### Actual Training Run (Latest)
+
+The first training run on this codebase progressed to **step 271** with the following metrics:
+
+| Step | Train Loss | LR | Tokens/sec |
+|------|------------|-----|------------|
+| 0 | ~9.2 | 1e-4 | — |
+| 5 | ~7.8 | 6e-5 | ~430 |
+| 100 | ~6.9 | 1e-5 | ~430 |
+| 271 | ~6.5 | 2.7e-5 | ~430 |
+
+- **Latest checkpoint**: `checkpoints/default_step_5.pt` (initial run used default naming).
+- **Training logs**: `logs/100m_training_log.csv` contains full history up to step 271.
+- **Loss curve**: `logs/loss_curve.png` is generated automatically after training completes.
+
+> Note: The run was interrupted early. Resume support has been improved so training can pick up from the latest checkpoint without duplicating steps or overwriting logs.
+
+### Sample Generation (After 50K Steps — Target)
 
 ```
 Prompt: The future of artificial intelligence is

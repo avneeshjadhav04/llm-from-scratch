@@ -51,7 +51,7 @@ def main():
     # Checkpoint and logging
     os.makedirs(config.checkpoint_dir, exist_ok=True)
     os.makedirs(config.log_dir, exist_ok=True)
-    checkpoint_manager = CheckpointManager(config.checkpoint_dir)
+    checkpoint_manager = CheckpointManager(config.checkpoint_dir, config_name="100m")
     logger = Logger(config.log_dir, config_name="100m")
 
     # Resume from checkpoint if available
@@ -64,6 +64,7 @@ def main():
         latest_checkpoint = os.path.join(config.checkpoint_dir, checkpoint_files[-1])
         start_step, _ = checkpoint_manager.load(latest_checkpoint, model, optimizer, device)
         print(f"Resumed training from step {start_step}")
+        start_step += 1  # Skip the already-completed step to avoid duplicates
 
     # Trainer
     trainer = Trainer(model, optimizer, config, checkpoint_manager, logger)
