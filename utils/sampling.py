@@ -10,7 +10,7 @@ def generate_text(
     max_new_tokens: int = 256,
     temperature: float = 0.8,
     top_k: int = 40,
-    top_p: float = 1.0,
+    top_p: float = 0.95,
     device: str = "cuda",
 ):
     """Generate text from a prompt using temperature and top-k/top-p sampling."""
@@ -19,7 +19,6 @@ def generate_text(
 
     with torch.no_grad():
         for _ in range(max_new_tokens):
-            # Crop to max sequence length
             idx_cond = input_ids if input_ids.size(1) <= model.config.max_seq_len else input_ids[:, -model.config.max_seq_len:]
             logits, _ = model(idx_cond)
             logits = logits[:, -1, :] / temperature
@@ -34,9 +33,7 @@ def generate_text(
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                 cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
-                # Remove tokens with cumulative probability above the threshold
                 sorted_indices_to_remove = cumulative_probs > top_p
-                # Keep at least one token
                 sorted_indices_to_remove[..., 0] = False
 
                 indices_to_remove = sorted_indices_to_remove.scatter(

@@ -1,40 +1,43 @@
-"""Unified configuration for LLM-from-scratch (100M parameters)."""
+"""Unified configuration for LLM-from-scratch."""
 import argparse
 from dataclasses import dataclass
 
 
 @dataclass
 class Config:
-    """Base configuration for the model and training."""
-    # Model architecture (~100M parameters)
-    vocab_size: int = 10000
+    """Configuration for the model and training."""
+    # Model architecture (~124M parameters)
+    vocab_size: int = 50257          # GPT-2 vocab size
     d_model: int = 768
-    n_layers: int = 14
+    n_layers: int = 12
     n_heads: int = 12
     d_ff: int = 3072
-    max_seq_len: int = 256
+    max_seq_len: int = 512           # Longer context for better learning
     dropout: float = 0.1
 
     # Training
-    batch_size: int = 4
-    grad_accum_steps: int = 8
-    learning_rate: float = 1e-4
-    weight_decay: float = 0.01
-    max_steps: int = 100000
-    max_steps_per_session: int = 0  # 0 = disabled; cap max_steps for this session
-    warmup_steps: int = 1000
+    batch_size: int = 16             # Fits comfortably on single T4 with compile
+    grad_accum_steps: int = 4        # Effective batch = 64
+    learning_rate: float = 6e-4      # Slightly higher for better convergence on web data
+    weight_decay: float = 0.1        # Standard for transformers
+    max_steps: int = 100_000
+    max_steps_per_session: int = 0   # 0 = disabled
+    warmup_steps: int = 2000
     eval_interval: int = 1000
-    eval_iters: int = 100
-    checkpoint_interval: int = 2500
+    eval_iters: int = 200
+    checkpoint_interval: int = 5000
+    log_interval: int = 10           # Print every N steps
+    sample_interval: int = 2000      # Generate samples every N steps
 
     # Data
-    train_split: float = 0.9
-    num_tokens_to_train: int = 100_000_000
+    train_split: float = 0.95
+    num_tokens_to_train: int = 10_000_000
 
     # Generation
-    max_new_tokens: int = 512
+    max_new_tokens: int = 256
     temperature: float = 0.8
-    top_k: int = 50
+    top_k: int = 40
+    top_p: float = 0.95
 
     # System
     device: str = "cuda"
@@ -46,7 +49,6 @@ class Config:
     data_dir: str = "data"
     checkpoint_dir: str = "checkpoints"
     log_dir: str = "logs"
-    dataset_name: str = "wikitext-2"
 
 
 def get_config() -> Config:
