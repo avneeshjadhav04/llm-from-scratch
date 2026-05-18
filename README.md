@@ -336,7 +336,7 @@ Training a 100M parameter model on a single GPU requires careful memory manageme
 
 1. **Gradient Checkpointing**: Recomputes activations during backward pass. Enabled by default. Adds ~30% compute overhead but saves ~40% memory.
 2. **Mixed Precision (FP16)**: Uses `torch.amp.autocast` to run forward/backward in half-precision. Nearly 2x memory savings with minimal accuracy loss.
-3. **Gradient Accumulation**: Splits the effective batch size (128) across 8 micro-steps. Each micro-step uses batch_size=16 (or 8 per GPU when using DataParallel on 2x T4).
+3. **Gradient Accumulation**: Splits the effective batch size (128) across 8 micro-steps. Each micro-step uses batch_size=16 (or 8 per GPU when using DDP on 2x T4).
 4. **Weight Tying**: Shares input/output embedding matrix. Saves ~7.7M parameters (~7% of total).
 
 ---
@@ -449,7 +449,7 @@ machine learning...
 - [ ] **Grouped Query Attention (GQA)**: Reduce KV cache memory during inference.
 - [ ] **LoRA Fine-tuning**: Add parameter-efficient fine-tuning support.
 - [ ] **KV-Cache Optimization**: Speed up inference by caching key/value tensors.
-- [ ] **Distributed Training**: Add DDP/FSDP support for multi-GPU training.
+- [x] **Distributed Training**: DDP support for multi-GPU training (auto-detected).
 - [ ] **Chat Template**: Format training data for instruction-following capabilities.
 
 ---
