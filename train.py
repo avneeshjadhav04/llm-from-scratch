@@ -20,6 +20,8 @@ def main():
         config.learning_rate = args.learning_rate
     if args.max_steps is not None:
         config.max_steps = args.max_steps
+    if args.max_steps_per_session is not None:
+        config.max_steps_per_session = args.max_steps_per_session
     if args.compile is not None:
         config.compile_model = args.compile
 
@@ -65,6 +67,13 @@ def main():
         start_step, _ = checkpoint_manager.load(latest_checkpoint, model, optimizer, device)
         print(f"Resumed training from step {start_step}")
         start_step += 1  # Skip the already-completed step to avoid duplicates
+
+    # Cap total steps for this session to avoid hitting the Kaggle time limit
+    if config.max_steps_per_session > 0:
+        session_cap = start_step + config.max_steps_per_session
+        if session_cap < config.max_steps:
+            config.max_steps = session_cap
+            print(f"Session limit enabled: training up to step {config.max_steps}")
 
     # Trainer
     trainer = Trainer(model, optimizer, config, checkpoint_manager, logger)

@@ -194,7 +194,9 @@ llm-from-scratch/
 │   ├── test_model.py         # Forward pass and gradient tests
 │   └── test_attention.py     # Causality and attention weight tests
 ├── notebooks/
-│   └── playground.ipynb      # Interactive generation notebook
+│   ├── playground.ipynb                        # Interactive generation notebook
+│   ├── LLM_from_Scratch_100M_Colab.ipynb       # Google Colab (Drive + T4)
+│   └── LLM_from_Scratch_100M_Kaggle.ipynb      # Kaggle (session-chaining T4)
 ├── checkpoints/              # Saved model weights (.gitignored)
 ├── logs/                     # Training logs and loss curves
 ├── config.py                 # Unified 100M parameter configuration
@@ -290,6 +292,23 @@ python generate.py \
 ### Interactive Playground
 
 Open `notebooks/playground.ipynb` in Jupyter to experiment with different prompts and sampling parameters interactively.
+
+### Kaggle Notebook (Session Chaining)
+
+For training on Kaggle T4 GPU with automatic resume across sessions, use `LLM_from_Scratch_100M_Kaggle.ipynb`.
+
+**One-time setup:**
+1. Create a new Kaggle Notebook.
+2. Upload `LLM_from_Scratch_100M_Kaggle.ipynb`.
+3. Enable GPU: Settings → Accelerator → GPU T4.
+4. Run all cells.
+
+**Chaining sessions (minimal babysitting):**
+1. After the notebook finishes, click **Save Version** to commit outputs (checkpoints + logs).
+2. Go to the **Versions** tab, select your latest version, and click **Run** to start a new session.
+3. The new session auto-detects the previous checkpoint from `/kaggle/input/` and resumes training.
+
+Each session trains **2,500 steps** (~2–3 hours) and safely stops before the 12-hour Kaggle limit.
 
 ---
 
