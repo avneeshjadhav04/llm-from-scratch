@@ -203,6 +203,7 @@ llm-from-scratch/
 ├── prepare_data.py           # Download corpus and train tokenizer
 ├── train.py                  # Main training script
 ├── generate.py               # Text generation CLI
+├── package_for_kaggle.py     # Zip source code for Kaggle Dataset upload
 ├── requirements.txt
 ├── README.md
 └── .gitignore
@@ -297,11 +298,30 @@ Open `notebooks/playground.ipynb` in Jupyter to experiment with different prompt
 
 For training on Kaggle T4 GPU with automatic resume across sessions, use `LLM_from_Scratch_100M_Kaggle.ipynb`.
 
+**Why a Dataset instead of `git clone`?**
+Kaggle's network can be slow or unreliable for cloning. We package the code as a Kaggle Dataset so it's mounted instantly from local storage.
+
 **One-time setup:**
-1. Create a new Kaggle Notebook.
-2. Upload `LLM_from_Scratch_100M_Kaggle.ipynb`.
-3. Enable GPU: Settings → Accelerator → GPU T4.
-4. Run all cells.
+
+1. **Package the code** (run locally in this repo):
+   ```bash
+   python package_for_kaggle.py
+   ```
+   This creates `llm-from-scratch-code.zip`.
+
+2. **Upload to Kaggle Datasets**:
+   - Go to [kaggle.com/datasets](https://www.kaggle.com/datasets)
+   - Click **New Dataset**
+   - Upload `llm-from-scratch-code.zip`
+   - Name it `llm-from-scratch` (or any name you prefer)
+   - Click **Create**
+
+3. **Create the Notebook**:
+   - Create a new Kaggle Notebook
+   - Upload `LLM_from_Scratch_100M_Kaggle.ipynb`
+   - **Add Data** → attach your `llm-from-scratch` dataset as an Input
+   - Enable GPU: Settings → Accelerator → GPU T4
+   - Run all cells
 
 **Chaining sessions (minimal babysitting):**
 1. After the notebook finishes, click **Save Version** to commit outputs (checkpoints + logs).
