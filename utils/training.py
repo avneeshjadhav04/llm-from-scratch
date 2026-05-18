@@ -38,7 +38,19 @@ class CheckpointManager:
 
     def load(self, path, model, optimizer=None, device="cpu"):
         checkpoint = torch.load(path, map_location=device, weights_only=False)
-        model.load_state_dict(checkpoint["model_state_dict"])
+        state_dict = checkpoint["model_state_dict"]
+
+        # Handle DataParallel module. prefix for cross-device loading
+        has_module_prefix = any(k.startswith("module.") for k in state_dict)
+        model_is_dp = hasattr(model, "module")
+        if has_module_prefix and not model_is_dp:
+            # Loading DP checkpoint on non-DP model
+            state_dict = {k.replace("module.", "", 1): v for k, v in state_dict.items()}
+        elif not has_module_prefix and model_is_dp:
+            # Loading non-DP checkpoint on DP model
+            state_dict = {"module." + k: v for k, v in state_dict.items()}
+
+        model.load_state_dict(state_dict)
         if optimizer is not None and "optimizer_state_dict" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         print(f"Checkpoint loaded from {path}")
@@ -149,6 +161,9 @@ class Trainer:
                 # Forward pass with autocast
                 with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
                     logits, loss = self.model(x, y)
+                    # DataParallel gathers losses from each GPU into a tensor
+                    if loss is not None and loss.dim() > 0:
+                        loss = loss.mean()
                     loss = loss / self.config.grad_accum_steps
 
                 # Backward pass
@@ -216,6 +231,8 @@ class Trainer:
             y = y.to(self.config.device)
             with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
                 logits, loss = self.model(x, y)
+                if loss is not None and loss.dim() > 0:
+                    loss = loss.mean()
             losses.append(loss.item())
         mean_loss = sum(losses) / len(losses)
         print(f"Validation loss: {mean_loss:.4f}")
