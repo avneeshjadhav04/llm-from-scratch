@@ -31,7 +31,7 @@ class Config:
 
     # Data
     train_split: float = 0.95
-    num_tokens_to_train: int = 10_000_000
+    num_tokens_to_train: int = 200_000_000
 
     # Generation
     max_new_tokens: int = 256

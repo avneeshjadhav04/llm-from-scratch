@@ -4,51 +4,88 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
 
 
-def prepare_fineweb_edu(output_dir: str = "data", num_tokens: int = 10_000_000) -> str:
-    """Download FineWeb-Edu dataset and save as tokenized binary."""
+def prepare_fineweb_edu(output_dir: str = "data", num_tokens: int = 200_000_000) -> str:
+    """Download FineWeb-Edu dataset and save as tokenized binary.
+    
+    Memory-efficient implementation: streams documents, tokenizes in batches,
+    and writes directly to disk to avoid loading all tokens into RAM.
+    """
     os.makedirs(output_dir, exist_ok=True)
     train_path = os.path.join(output_dir, "corpus_train.bin")
     val_path = os.path.join(output_dir, "corpus_val.bin")
+    temp_path = os.path.join(output_dir, "corpus_temp.bin")
 
     if os.path.exists(train_path) and os.path.exists(val_path):
         print(f"Tokenized corpus already exists at {output_dir}")
         return output_dir
 
     print("Loading FineWeb-Edu dataset (sample)...")
-    # Use a small subset for 10M tokens target
     ds = load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True)
 
     from data.tokenizer import Tokenizer
     tokenizer = Tokenizer()
 
-    all_tokens = []
     target_tokens = num_tokens
     train_split = 0.95
+    write_batch_size = 1_000_000  # ~2MB buffer
 
-    print(f"Tokenizing up to {target_tokens:,} tokens...")
-    for i, example in enumerate(ds):
-        text = example["text"]
-        tokens = tokenizer.encode(text)
-        all_tokens.extend(tokens)
+    print(f"Tokenizing up to {target_tokens:,} tokens (memory-efficient batched write)...")
+    batch_tokens = []
+    total_written = 0
+    doc_count = 0
 
-        if len(all_tokens) >= target_tokens:
-            break
+    with open(temp_path, "wb") as f:
+        pbar = tqdm(total=target_tokens, unit="tok", desc="Tokenizing")
+        for example in ds:
+            text = example["text"]
+            tokens = tokenizer.encode(text)
+            batch_tokens.extend(tokens)
+            doc_count += 1
 
-        if (i + 1) % 1000 == 0:
-            print(f"  Processed {i+1} documents, {len(all_tokens):,} tokens...")
+            # Flush batch to disk when buffer is full
+            while len(batch_tokens) >= write_batch_size and total_written < target_tokens:
+                to_write = min(write_batch_size, target_tokens - total_written)
+                chunk = np.array(batch_tokens[:to_write], dtype=np.uint16)
+                chunk.tofile(f)
+                total_written += to_write
+                batch_tokens = batch_tokens[to_write:]
+                pbar.update(to_write)
 
-    all_tokens = np.array(all_tokens[:target_tokens], dtype=np.uint16)
-    n = int(len(all_tokens) * train_split)
-    train_ids = all_tokens[:n]
-    val_ids = all_tokens[n:]
+            if total_written >= target_tokens:
+                break
 
-    train_ids.tofile(train_path)
-    val_ids.tofile(val_path)
+        # Flush remaining tokens
+        if batch_tokens and total_written < target_tokens:
+            to_write = min(len(batch_tokens), target_tokens - total_written)
+            chunk = np.array(batch_tokens[:to_write], dtype=np.uint16)
+            chunk.tofile(f)
+            total_written += to_write
+            pbar.update(to_write)
 
-    print(f"Saved {len(train_ids):,} train tokens to {train_path}")
-    print(f"Saved {len(val_ids):,} val tokens to {val_path}")
+        pbar.close()
+
+    print(f"  Processed {doc_count:,} documents, wrote {total_written:,} tokens to temp file")
+
+    # Split into train/val using memmap (zero RAM copy)
+    full = np.memmap(temp_path, dtype=np.uint16, mode="r")
+    n = int(total_written * train_split)
+
+    # Write train split
+    full[:n].tofile(train_path)
+    # Write val split
+    full[n:total_written].tofile(val_path)
+
+    # Cleanup temp file
+    del full
+    os.remove(temp_path)
+
+    train_size = n
+    val_size = total_written - n
+    print(f"Saved {train_size:,} train tokens to {train_path}")
+    print(f"Saved {val_size:,} val tokens to {val_path}")
     return output_dir
 
 
