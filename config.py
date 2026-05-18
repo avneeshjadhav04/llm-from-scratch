@@ -63,6 +63,8 @@ def parse_args():
     parser.add_argument("--learning_rate", type=float, default=None, help="Override learning rate")
     parser.add_argument("--max_steps", type=int, default=None, help="Override max steps")
     parser.add_argument("--max_steps_per_session", type=int, default=None, help="Session step limit (0=disabled)")
+    parser.add_argument("--max_seq_len", type=int, default=None, help="Override max sequence length")
+    parser.add_argument("--warmup_steps", type=int, default=None, help="Override warmup steps")
     parser.add_argument("--compile", type=lambda x: x.lower() == "true", default=None, help="Override torch.compile (true/false)")
     return parser.parse_args()
 
@@ -80,6 +82,10 @@ def get_config_from_args():
         config.max_steps = args.max_steps
     if args.max_steps_per_session is not None:
         config.max_steps_per_session = args.max_steps_per_session
+    if args.max_seq_len is not None:
+        config.max_seq_len = args.max_seq_len
+    if args.warmup_steps is not None:
+        config.warmup_steps = args.warmup_steps
     if args.compile is not None:
         config.compile_model = args.compile
     return config

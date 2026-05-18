@@ -22,6 +22,10 @@ def main():
         config.max_steps = args.max_steps
     if args.max_steps_per_session is not None:
         config.max_steps_per_session = args.max_steps_per_session
+    if args.max_seq_len is not None:
+        config.max_seq_len = args.max_seq_len
+    if args.warmup_steps is not None:
+        config.warmup_steps = args.warmup_steps
     if args.compile is not None:
         config.compile_model = args.compile
 
