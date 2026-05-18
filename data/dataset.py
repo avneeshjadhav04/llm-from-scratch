@@ -27,19 +27,54 @@ def prepare_wikitext2(output_dir: str = "data") -> str:
     os.makedirs(output_dir, exist_ok=True)
     url = "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip"
     zip_path = os.path.join(output_dir, "wikitext-2-v1.zip")
-
-    if not os.path.exists(os.path.join(output_dir, "wikitext-2")):
-        print(f"Downloading Wikitext-2 from {url}...")
-        import requests
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        with open(zip_path, "wb") as f:
-            f.write(response.content)
-        import zipfile
-        with zipfile.ZipFile(zip_path, "r") as f:
-            f.extractall(output_dir)
-
     data_dir = os.path.join(output_dir, "wikitext-2")
+
+    # If data dir already exists with text files, skip download
+    if os.path.isdir(data_dir) and any(
+        f.endswith((".txt", ".tokens")) for f in os.listdir(data_dir)
+    ):
+        return data_dir
+
+    import zipfile
+
+    # Validate existing zip — remove if corrupt so we re-download
+    if os.path.exists(zip_path):
+        try:
+            with zipfile.ZipFile(zip_path, "r") as _:
+                pass  # Valid zip
+        except zipfile.BadZipFile:
+            print("Existing zip is corrupt. Re-downloading...")
+            os.remove(zip_path)
+
+    # Download with retry
+    if not os.path.exists(zip_path):
+        import requests
+        for attempt in range(1, 4):
+            try:
+                print(f"Downloading Wikitext-2 (attempt {attempt}/3)...")
+                response = requests.get(url, timeout=60)
+                response.raise_for_status()
+                with open(zip_path, "wb") as f:
+                    f.write(response.content)
+                # Validate immediately after download
+                with zipfile.ZipFile(zip_path, "r") as _:
+                    pass
+                break
+            except Exception as e:
+                print(f"  Download failed: {e}")
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+                if attempt == 3:
+                    raise RuntimeError(
+                        "Failed to download Wikitext-2 after 3 attempts. "
+                        "Check your internet connection or the URL availability."
+                    )
+
+    # Extract
+    print("Extracting Wikitext-2...")
+    with zipfile.ZipFile(zip_path, "r") as f:
+        f.extractall(output_dir)
+
     return data_dir
 
 

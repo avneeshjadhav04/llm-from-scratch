@@ -30,6 +30,15 @@ def main():
     config.device = device
     print(f"Using device: {device}")
 
+    # Verify corpus binaries exist before creating dataloaders
+    train_bin = os.path.join(config.data_dir, "corpus_train.bin")
+    val_bin = os.path.join(config.data_dir, "corpus_val.bin")
+    if not os.path.exists(train_bin) or not os.path.exists(val_bin):
+        raise FileNotFoundError(
+            f"Corpus binaries not found: {train_bin} or {val_bin}. "
+            f"Run 'python prepare_data.py' first to download and tokenize the dataset."
+        )
+
     # Create dataloaders
     train_loader, val_loader = get_dataloaders(config.data_dir, config.max_seq_len, config.batch_size)
     print(f"Train batches: {len(train_loader)}, Val batches: {len(val_loader)}")
