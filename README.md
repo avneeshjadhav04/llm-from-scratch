@@ -318,10 +318,10 @@ Each session trains **2,500 steps** (~2–3 hours) and safely stops before the 1
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| `batch_size` | 32 | Fits in 16GB (16 per GPU when using DDP on 2x T4) |
+| `batch_size` | 32 | Fits in 16GB T4 |
 | `grad_accum_steps` | 8 | Effective batch size = 256 |
 | `dtype` | float16 | Mixed precision halves memory |
-| `gradient_checkpointing` | False | Disabled on 2x T4 — plenty of VRAM |
+| `gradient_checkpointing` | False | Disabled — single T4 has enough VRAM |
 | `compile_model` | True | `torch.compile` for ~1.5x speedup |
 
 ### Minimum: Local Machine (CPU)
@@ -334,9 +334,9 @@ Training on CPU is possible for testing but extremely slow for the full 100K ste
 
 Training a 100M parameter model on a single GPU requires careful memory management:
 
-1. **torch.compile**: Enabled by default for ~1.5x speedup on T4. Compiles the model graph before wrapping in DDP.
+1. **torch.compile**: Enabled by default for ~1.5x speedup on T4.
 2. **Mixed Precision (FP16)**: Uses `torch.amp.autocast` to run forward/backward in half-precision. Nearly 2x memory savings with minimal accuracy loss.
-3. **Gradient Accumulation**: Splits the effective batch size (256) across 8 micro-steps. Each micro-step uses batch_size=32 (or 16 per GPU when using DDP on 2x T4).
+3. **Gradient Accumulation**: Splits the effective batch size (256) across 8 micro-steps. Each micro-step uses batch_size=32.
 4. **Weight Tying**: Shares input/output embedding matrix. Saves ~7.7M parameters (~7% of total).
 
 ---
@@ -449,7 +449,7 @@ machine learning...
 - [ ] **Grouped Query Attention (GQA)**: Reduce KV cache memory during inference.
 - [ ] **LoRA Fine-tuning**: Add parameter-efficient fine-tuning support.
 - [ ] **KV-Cache Optimization**: Speed up inference by caching key/value tensors.
-- [x] **Distributed Training**: DDP support for multi-GPU training (auto-detected).
+- [ ] **Distributed Training**: Add DDP/FSDP support for multi-GPU training.
 - [ ] **Chat Template**: Format training data for instruction-following capabilities.
 
 ---

@@ -4,7 +4,6 @@ import csv
 import math
 import time
 import torch
-import torch.distributed as dist
 import matplotlib.pyplot as plt
 from config import Config
 
@@ -27,11 +26,9 @@ class CheckpointManager:
         os.makedirs(checkpoint_dir, exist_ok=True)
 
     def save(self, step, model, optimizer, loss):
-        # Unwrap DDP before saving so checkpoints are portable
-        model_to_save = model.module if hasattr(model, 'module') else model
         checkpoint = {
             "step": step,
-            "model_state_dict": model_to_save.state_dict(),
+            "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "loss": loss,
         }
@@ -43,7 +40,7 @@ class CheckpointManager:
         checkpoint = torch.load(path, map_location=device, weights_only=False)
         state_dict = checkpoint["model_state_dict"]
 
-        # Handle DDP module. prefix for cross-device loading
+        # Handle module. prefix from old DDP checkpoints for compatibility
         has_module_prefix = any(k.startswith("module.") for k in state_dict)
         model_is_wrapped = hasattr(model, "module")
         if has_module_prefix and not model_is_wrapped:
@@ -123,7 +120,7 @@ class Logger:
 
 
 class Trainer:
-    def __init__(self, model, optimizer, config: Config, checkpoint_manager: CheckpointManager, logger: Logger, rank=0, world_size=1):
+    def __init__(self, model, optimizer, config: Config, checkpoint_manager: CheckpointManager, logger: Logger):
         self.model = model
         self.optimizer = optimizer
         self.config = config
@@ -131,12 +128,8 @@ class Trainer:
         self.logger = logger
         self.step = 0
         self.best_val_loss = float("inf")
-        self.rank = rank
-        self.world_size = world_size
-        self.is_master = rank == 0
-        self.use_ddp = world_size > 1 and hasattr(model, 'module')
 
-        # Mixed precision scaler — works for cuda, cuda:0, cuda:1, etc.
+        # Mixed precision scaler
         self.scaler = torch.amp.GradScaler('cuda') if config.dtype == "float16" and "cuda" in config.device else None
 
     def train(self, train_loader, val_loader):
@@ -166,24 +159,16 @@ class Trainer:
                 # Forward pass with autocast
                 with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
                     logits, loss = self.model(x, y)
-                    # DDP may return a tensor of losses (one per GPU replica)
+                    # Defensive: ensure scalar loss (handles edge cases)
                     if loss is not None and loss.dim() > 0:
                         loss = loss.mean()
                     loss = loss / self.config.grad_accum_steps
 
-                # Backward pass — use no_sync during gradient accumulation except last step
-                is_last_micro_step = micro_step == self.config.grad_accum_steps - 1
-                if self.use_ddp and not is_last_micro_step:
-                    with self.model.no_sync():
-                        if self.scaler is not None:
-                            self.scaler.scale(loss).backward()
-                        else:
-                            loss.backward()
+                # Backward pass
+                if self.scaler is not None:
+                    self.scaler.scale(loss).backward()
                 else:
-                    if self.scaler is not None:
-                        self.scaler.scale(loss).backward()
-                    else:
-                        loss.backward()
+                    loss.backward()
 
                 accumulated_loss += loss.item()
 
@@ -209,32 +194,29 @@ class Trainer:
                 self.config.batch_size * self.config.grad_accum_steps * self.config.max_seq_len
             ) / (dt / 1000)
 
-            # Logging (master only)
-            if self.step % 10 == 0 and self.is_master:
+            # Logging
+            if self.step % 10 == 0:
                 print(f"step {self.step:5d} | loss {accumulated_loss:.4f} | lr {lr:.2e} | dt {dt:.2f}ms | tok/s {tokens_per_sec:.2f}")
 
-            # Evaluation (master only logs)
+            # Evaluation
             val_loss = None
             if self.step > 0 and self.step % self.config.eval_interval == 0:
                 val_loss = self.evaluate(val_loader)
                 self.model.train()
-                if self.is_master and val_loss < self.best_val_loss:
+                if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
 
-            if self.is_master and self.logger is not None:
-                self.logger.log(self.step, accumulated_loss, val_loss, lr, dt, tokens_per_sec)
+            self.logger.log(self.step, accumulated_loss, val_loss, lr, dt, tokens_per_sec)
 
-            # Checkpointing (master only)
-            if self.step > 0 and self.step % self.config.checkpoint_interval == 0 and self.is_master:
+            # Checkpointing
+            if self.step > 0 and self.step % self.config.checkpoint_interval == 0:
                 self.checkpoint_manager.save(self.step, self.model, self.optimizer, accumulated_loss)
 
             self.step += 1
 
-        # Final checkpoint and plot (master only)
-        if self.is_master:
-            self.checkpoint_manager.save(self.step, self.model, self.optimizer, accumulated_loss)
-            if self.logger is not None:
-                self.logger.plot()
+        # Final checkpoint and plot
+        self.checkpoint_manager.save(self.step, self.model, self.optimizer, accumulated_loss)
+        self.logger.plot()
 
     @torch.no_grad()
     def evaluate(self, val_loader):
@@ -251,13 +233,5 @@ class Trainer:
                     loss = loss.mean()
             losses.append(loss.item())
         mean_loss = sum(losses) / len(losses)
-
-        # Average loss across all DDP ranks
-        if self.use_ddp:
-            loss_tensor = torch.tensor([mean_loss], device=self.config.device)
-            dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
-            mean_loss = loss_tensor.item() / self.world_size
-
-        if self.is_master:
-            print(f"Validation loss: {mean_loss:.4f}")
+        print(f"Validation loss: {mean_loss:.4f}")
         return mean_loss

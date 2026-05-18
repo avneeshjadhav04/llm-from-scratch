@@ -41,7 +41,6 @@ class Config:
     dtype: str = "float16"
     compile_model: bool = True
     gradient_checkpointing: bool = False
-    use_ddp: bool = True  # Auto-use DistributedDataParallel if multiple GPUs available
 
     # Paths
     data_dir: str = "data"
