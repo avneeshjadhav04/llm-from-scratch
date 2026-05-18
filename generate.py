@@ -19,11 +19,14 @@ def main():
     parser.add_argument("--top_k", type=int, default=None)
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--device", type=str, default=None, help="Override device")
+    parser.add_argument("--max_seq_len", type=int, default=None, help="Override max sequence length")
     args = parser.parse_args()
 
     config = Config()
     if args.device is not None:
         config.device = args.device
+    if args.max_seq_len is not None:
+        config.max_seq_len = args.max_seq_len
 
     device = config.device if torch.cuda.is_available() else "cpu"
     config.device = device

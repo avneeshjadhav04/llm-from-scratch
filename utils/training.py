@@ -146,7 +146,7 @@ class Trainer:
         self.best_val_loss = float("inf")
 
         # Mixed precision scaler
-        self.scaler = torch.amp.GradScaler('cuda') if config.dtype == "float16" and "cuda" in config.device else None
+        self.scaler = torch.cuda.amp.GradScaler() if config.dtype == "float16" and "cuda" in config.device else None
 
     @staticmethod
     def calculate_perplexity(loss):
@@ -217,7 +217,7 @@ class Trainer:
                 x = x.to(self.config.device)
                 y = y.to(self.config.device)
 
-                with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
+                with torch.amp.autocast(device_type=self.config.device, enabled=self.scaler is not None):
                     logits, loss = self.model(x, y)
                     if loss is not None and loss.dim() > 0:
                         loss = loss.mean()
@@ -290,7 +290,7 @@ class Trainer:
                 break
             x = x.to(self.config.device)
             y = y.to(self.config.device)
-            with torch.amp.autocast(self.config.device, enabled=self.scaler is not None):
+            with torch.amp.autocast(device_type=self.config.device, enabled=self.scaler is not None):
                 logits, loss = self.model(x, y)
                 if loss is not None and loss.dim() > 0:
                     loss = loss.mean()
