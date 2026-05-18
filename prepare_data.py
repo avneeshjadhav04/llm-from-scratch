@@ -8,6 +8,7 @@ def main():
     parser = argparse.ArgumentParser(description="Prepare data for LLM training")
     parser.add_argument("--data_dir", type=str, default="data")
     parser.add_argument("--num_tokens", type=int, default=None)
+    parser.add_argument("--train_split", type=float, default=0.95, help="Train/validation split ratio")
     args = parser.parse_args()
 
     config = Config()
@@ -15,7 +16,7 @@ def main():
     data_dir = args.data_dir
 
     print("Preparing FineWeb-Edu dataset...")
-    prepare_fineweb_edu(data_dir, num_tokens=num_tokens)
+    prepare_fineweb_edu(data_dir, num_tokens=num_tokens, train_split=args.train_split)
     print("Data preparation complete!")
 
 

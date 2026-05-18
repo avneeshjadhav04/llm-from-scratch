@@ -7,7 +7,11 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 
-def prepare_fineweb_edu(output_dir: str = "data", num_tokens: int = 200_000_000) -> str:
+def prepare_fineweb_edu(
+    output_dir: str = "data",
+    num_tokens: int = 200_000_000,
+    train_split: float = 0.95,
+) -> str:
     """Download FineWeb-Edu dataset and save as tokenized binary.
     
     Memory-efficient implementation: streams documents, tokenizes in batches,
@@ -29,7 +33,6 @@ def prepare_fineweb_edu(output_dir: str = "data", num_tokens: int = 200_000_000)
     tokenizer = Tokenizer()
 
     target_tokens = num_tokens
-    train_split = 0.95
     write_batch_size = 1_000_000  # ~2MB buffer
 
     print(f"Tokenizing up to {target_tokens:,} tokens (memory-efficient batched write)...")
