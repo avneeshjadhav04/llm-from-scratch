@@ -48,6 +48,10 @@ class CheckpointManager:
         elif not has_module_prefix and model_is_wrapped:
             state_dict = {"module." + k: v for k, v in state_dict.items()}
 
+        # Handle torch.compile _orig_mod. prefix
+        if any(k.startswith("_orig_mod.") for k in state_dict):
+            state_dict = {k.replace("_orig_mod.", "", 1): v for k, v in state_dict.items()}
+
         model.load_state_dict(state_dict)
         if optimizer is not None and "optimizer_state_dict" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
