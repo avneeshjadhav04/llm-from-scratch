@@ -318,8 +318,8 @@ Each session trains **2,500 steps** (~2–3 hours) and safely stops before the 1
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
-| `batch_size` | 32 | Fits in 16GB T4 |
-| `grad_accum_steps` | 8 | Effective batch size = 256 |
+| `batch_size` | 4 | Fits in 16GB T4 |
+| `grad_accum_steps` | 8 | Effective batch size = 32 |
 | `dtype` | float16 | Mixed precision halves memory |
 | `gradient_checkpointing` | False | Disabled — single T4 has enough VRAM |
 | `compile_model` | True | `torch.compile` for ~1.5x speedup |
@@ -336,7 +336,7 @@ Training a 100M parameter model on a single GPU requires careful memory manageme
 
 1. **torch.compile**: Enabled by default for ~1.5x speedup on T4.
 2. **Mixed Precision (FP16)**: Uses `torch.amp.autocast` to run forward/backward in half-precision. Nearly 2x memory savings with minimal accuracy loss.
-3. **Gradient Accumulation**: Splits the effective batch size (256) across 8 micro-steps. Each micro-step uses batch_size=32.
+3. **Gradient Accumulation**: Splits the effective batch size (32) across 8 micro-steps. Each micro-step uses batch_size=4.
 4. **Weight Tying**: Shares input/output embedding matrix. Saves ~7.7M parameters (~7% of total).
 
 ---
