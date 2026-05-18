@@ -16,7 +16,7 @@ class Config:
     dropout: float = 0.1
 
     # Training
-    batch_size: int = 4
+    batch_size: int = 8
     grad_accum_steps: int = 8
     learning_rate: float = 1e-4
     weight_decay: float = 0.01
