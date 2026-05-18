@@ -86,9 +86,6 @@ data/wikitext-2/
 *.pth
 *.ckpt
 
-# Archives
-*.zip
-
 # OS
 .DS_Store
 Thumbs.db
