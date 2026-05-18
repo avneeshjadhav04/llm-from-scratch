@@ -26,9 +26,15 @@ def main():
         config.compile_model = args.compile
 
     # Device setup
-    device = config.device if torch.cuda.is_available() else "cpu"
-    config.device = device
-    print(f"Using device: {device}")
+    if torch.cuda.is_available():
+        device = "cuda:0"
+        config.device = device
+        gpu_count = torch.cuda.device_count()
+        print(f"Using device: {device} ({gpu_count} GPU{'s' if gpu_count > 1 else ''})")
+    else:
+        device = "cpu"
+        config.device = device
+        print(f"Using device: {device}")
 
     # Verify corpus binaries exist before creating dataloaders
     train_bin = os.path.join(config.data_dir, "corpus_train.bin")
@@ -45,6 +51,11 @@ def main():
 
     # Create model
     model = Transformer(config).to(device)
+
+    # Multi-GPU: wrap in DataParallel if available and enabled
+    if config.use_data_parallel and torch.cuda.device_count() > 1:
+        print(f"Wrapping model in nn.DataParallel across {torch.cuda.device_count()} GPUs...")
+        model = torch.nn.DataParallel(model)
 
     # Compile model if enabled
     if config.compile_model:
