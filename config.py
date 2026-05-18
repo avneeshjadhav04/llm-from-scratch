@@ -16,7 +16,7 @@ class Config:
     dropout: float = 0.1
 
     # Training
-    batch_size: int = 16
+    batch_size: int = 32
     grad_accum_steps: int = 8
     learning_rate: float = 1e-4
     weight_decay: float = 0.01
@@ -39,8 +39,8 @@ class Config:
     # System
     device: str = "cuda"
     dtype: str = "float16"
-    compile_model: bool = False
-    gradient_checkpointing: bool = True
+    compile_model: bool = True
+    gradient_checkpointing: bool = False
     use_ddp: bool = True  # Auto-use DistributedDataParallel if multiple GPUs available
 
     # Paths

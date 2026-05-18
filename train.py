@@ -50,15 +50,15 @@ def _train_single(rank: int, world_size: int, config: Config):
     # Create model
     model = Transformer(config).to(device)
 
-    # Wrap in DDP if multi-GPU
-    if use_ddp:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
-
-    # Compile model if enabled
+    # Compile model if enabled (compile BEFORE DDP for cleaner graph)
     if config.compile_model:
         if is_master:
             print("Compiling model with torch.compile...")
         model = torch.compile(model)
+
+    # Wrap in DDP if multi-GPU
+    if use_ddp:
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
 
     # Optimizer
     optimizer = optim.AdamW(
