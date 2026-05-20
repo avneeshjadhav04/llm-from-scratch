@@ -109,6 +109,7 @@ class Logger:
         with open(self.csv_path, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writerow(row)
+            f.flush()
 
         self.steps.append(step)
         self.losses.append(train_loss)
@@ -146,14 +147,17 @@ class Trainer:
         self.best_val_loss = float("inf")
 
         # Mixed precision scaler
-        self.scaler = torch.cuda.amp.GradScaler() if config.dtype == "float16" and "cuda" in config.device else None
+        if config.dtype == "float16" and "cuda" in config.device:
+            self.scaler = torch.amp.GradScaler("cuda")
+        else:
+            self.scaler = None
 
     @staticmethod
     def calculate_perplexity(loss):
         """Calculate perplexity from cross-entropy loss."""
         return math.exp(min(loss, 20))  # Clamp to avoid overflow
 
-    def generate_sample(self, prompt="The future of artificial intelligence is", max_new_tokens=128):
+    def generate_sample(self, prompt="The future of artificial intelligence is"):
         """Generate a text sample for monitoring training progress."""
         if self.tokenizer is None:
             return
@@ -162,7 +166,7 @@ class Trainer:
         try:
             input_ids = torch.tensor([self.tokenizer.encode(prompt)], dtype=torch.long, device=self.config.device)
             with torch.no_grad():
-                for _ in range(max_new_tokens):
+                for _ in range(self.config.max_new_tokens):
                     idx_cond = input_ids if input_ids.size(1) <= self.config.max_seq_len else input_ids[:, -self.config.max_seq_len:]
                     logits, _ = self.model(idx_cond)
                     logits = logits[:, -1, :] / self.config.temperature
@@ -212,7 +216,13 @@ class Trainer:
                     x, y = next(train_iter)
                 except StopIteration:
                     train_iter = iter(train_loader)
-                    x, y = next(train_iter)
+                    try:
+                        x, y = next(train_iter)
+                    except StopIteration:
+                        raise RuntimeError(
+                            "Train loader is empty even after recreation. "
+                            "The dataset may be too small for the given batch_size and max_seq_len."
+                        )
 
                 x = x.to(self.config.device)
                 y = y.to(self.config.device)
@@ -232,7 +242,7 @@ class Trainer:
 
             if self.scaler is not None:
                 self.scaler.unscale_(self.optimizer)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.config.grad_clip_norm)
 
             if self.scaler is not None:
                 self.scaler.step(self.optimizer)
@@ -244,6 +254,7 @@ class Trainer:
             t1 = time.time()
             dt = (t1 - t0) * 1000
             t0 = t1
+            dt = max(dt, 1e-6)  # Guard against division by zero
 
             train_ppl = self.calculate_perplexity(accumulated_loss)
             tokens_per_sec = (
@@ -265,6 +276,14 @@ class Trainer:
                 val_ppl = self.calculate_perplexity(val_loss)
                 if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
+                    # Save best checkpoint
+                    best_path = os.path.join(self.checkpoint_manager.checkpoint_dir, f"{self.checkpoint_manager.config_name}_best.pt")
+                    torch.save({
+                        "step": self.step,
+                        "model_state_dict": self.model.state_dict(),
+                        "optimizer_state_dict": self.optimizer.state_dict(),
+                        "loss": val_loss,
+                    }, best_path)
 
             self.logger.log(self.step, accumulated_loss, train_ppl, val_loss, val_ppl, lr, dt, tokens_per_sec)
 
@@ -278,7 +297,8 @@ class Trainer:
 
             self.step += 1
 
-        self.checkpoint_manager.save(self.step, self.model, self.optimizer, accumulated_loss)
+        if self.step > 0:
+            self.checkpoint_manager.save(self.step, self.model, self.optimizer, accumulated_loss)
         self.logger.plot()
 
     @torch.no_grad()

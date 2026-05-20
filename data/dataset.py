@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 def prepare_fineweb_edu(
     output_dir: str = "data",
-    num_tokens: int = 200_000_000,
+    num_tokens: int = 2_000_000_000,
     train_split: float = 0.95,
 ) -> str:
     """Download FineWeb-Edu dataset and save as tokenized binary.
@@ -128,6 +128,7 @@ def get_dataloaders(data_dir: str, seq_len: int, batch_size: int, num_workers: i
         num_workers=num_workers,
         pin_memory=True,
         drop_last=True,
+        persistent_workers=num_workers > 0,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -136,6 +137,7 @@ def get_dataloaders(data_dir: str, seq_len: int, batch_size: int, num_workers: i
         num_workers=num_workers,
         pin_memory=True,
         drop_last=False,
+        persistent_workers=num_workers > 0,
     )
 
     return train_loader, val_loader

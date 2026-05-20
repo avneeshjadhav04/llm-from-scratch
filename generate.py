@@ -1,7 +1,7 @@
 """Text generation script for LLM-from-scratch."""
-import os
 import argparse
 import glob
+import os
 import torch
 from config import Config
 from data.tokenizer import Tokenizer
@@ -17,7 +17,7 @@ def main():
     parser.add_argument("--max_new_tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--top_k", type=int, default=None)
-    parser.add_argument("--top_p", type=float, default=0.95)
+    parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--device", type=str, default=None, help="Override device")
     parser.add_argument("--max_seq_len", type=int, default=None, help="Override max sequence length")
     args = parser.parse_args()
@@ -31,11 +31,11 @@ def main():
     device = config.device if torch.cuda.is_available() else "cpu"
     config.device = device
 
-    # Override generation params
-    max_new_tokens = args.max_new_tokens or config.max_new_tokens
-    temperature = args.temperature or config.temperature
-    top_k = args.top_k or config.top_k
-    top_p = args.top_p
+    # Override generation params (explicit None checks to allow 0 values)
+    max_new_tokens = args.max_new_tokens if args.max_new_tokens is not None else config.max_new_tokens
+    temperature = args.temperature if args.temperature is not None else config.temperature
+    top_k = args.top_k if args.top_k is not None else config.top_k
+    top_p = args.top_p if args.top_p is not None else config.top_p
 
     # Load tokenizer
     tokenizer = Tokenizer()
@@ -46,7 +46,7 @@ def main():
     # Load checkpoint
     checkpoint_path = args.checkpoint
     if checkpoint_path is None:
-        ckpts = sorted(glob.glob("checkpoints/*.pt"))
+        ckpts = sorted(glob.glob(os.path.join(config.checkpoint_dir, "*.pt")))
         if ckpts:
             checkpoint_path = ckpts[-1]
         else:

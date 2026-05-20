@@ -37,10 +37,10 @@ class CausalSelfAttention(nn.Module):
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
 
-        # Causal mask
+        # Causal mask (bool to save memory)
         self.register_buffer(
             "bias",
-            torch.tril(torch.ones(config.max_seq_len, config.max_seq_len))
+            torch.tril(torch.ones(config.max_seq_len, config.max_seq_len, dtype=torch.bool))
             .view(1, 1, config.max_seq_len, config.max_seq_len)
         )
 
@@ -116,11 +116,12 @@ class Transformer(nn.Module):
         self.ln_f = LayerNorm(config.d_model)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
+        # Initialize weights BEFORE weight tying to avoid double init
+        self.apply(self._init_weights)
+
         # Weight tying
         self.wte.weight = self.lm_head.weight
 
-        # Initialize weights
-        self.apply(self._init_weights)
         print(f"Number of parameters: {self.get_num_params()/1e6:.2f}M")
 
     def _init_weights(self, module):

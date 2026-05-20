@@ -17,12 +17,15 @@ class Config:
 
     # Training
     batch_size: int = 8              # Safe default for most GPUs (8-16GB)
-    grad_accum_steps: int = 4        # Effective batch = 64
+    grad_accum_steps: int = 4        # Effective batch = 32
     learning_rate: float = 6e-4      # Slightly higher for better convergence on web data
     weight_decay: float = 0.1        # Standard for transformers
     max_steps: int = 0               # 0 = auto-compute from num_tokens_to_train
     max_steps_per_session: int = 0   # 0 = disabled
     warmup_steps: int = 2000
+    num_workers: int = 2             # DataLoader workers (0 for CPU-only)
+    grad_clip_norm: float = 1.0      # Gradient clipping max norm
+    betas: tuple = (0.9, 0.95)       # AdamW beta parameters
     eval_interval: int = 1000
     eval_iters: int = 200
     checkpoint_interval: int = 5000
@@ -49,6 +52,7 @@ class Config:
     data_dir: str = "data"
     checkpoint_dir: str = "checkpoints"
     log_dir: str = "logs"
+    run_name: str = "100m"           # Prefix for checkpoints and logs
 
 
 def get_config() -> Config:
