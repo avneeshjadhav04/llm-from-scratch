@@ -16,11 +16,11 @@ class Config:
     dropout: float = 0.1
 
     # Training
-    batch_size: int = 16             # Fits comfortably on single T4 with compile
+    batch_size: int = 8              # Safe default for most GPUs (8-16GB)
     grad_accum_steps: int = 4        # Effective batch = 64
     learning_rate: float = 6e-4      # Slightly higher for better convergence on web data
     weight_decay: float = 0.1        # Standard for transformers
-    max_steps: int = 100_000
+    max_steps: int = 0               # 0 = auto-compute from num_tokens_to_train
     max_steps_per_session: int = 0   # 0 = disabled
     warmup_steps: int = 2000
     eval_interval: int = 1000
@@ -31,7 +31,7 @@ class Config:
 
     # Data
     train_split: float = 0.95
-    num_tokens_to_train: int = 200_000_000
+    num_tokens_to_train: int = 2_000_000_000
 
     # Generation
     max_new_tokens: int = 256
@@ -61,8 +61,9 @@ def parse_args():
     parser.add_argument("--device", type=str, default=None, help="Override device (cpu/cuda)")
     parser.add_argument("--batch_size", type=int, default=None, help="Override batch size")
     parser.add_argument("--learning_rate", type=float, default=None, help="Override learning rate")
-    parser.add_argument("--max_steps", type=int, default=None, help="Override max steps")
+    parser.add_argument("--max_steps", type=int, default=None, help="Override max steps (0=auto-compute)")
     parser.add_argument("--max_steps_per_session", type=int, default=None, help="Session step limit (0=disabled)")
+    parser.add_argument("--num_tokens", type=int, default=None, help="Override total tokens to train on")
     parser.add_argument("--max_seq_len", type=int, default=None, help="Override max sequence length")
     parser.add_argument("--warmup_steps", type=int, default=None, help="Override warmup steps")
     parser.add_argument("--compile", type=lambda x: x.lower() == "true", default=None, help="Override torch.compile (true/false)")
@@ -82,6 +83,8 @@ def get_config_from_args():
         config.max_steps = args.max_steps
     if args.max_steps_per_session is not None:
         config.max_steps_per_session = args.max_steps_per_session
+    if args.num_tokens is not None:
+        config.num_tokens_to_train = args.num_tokens
     if args.max_seq_len is not None:
         config.max_seq_len = args.max_seq_len
     if args.warmup_steps is not None:

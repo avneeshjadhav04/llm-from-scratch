@@ -22,12 +22,21 @@ def main():
         config.max_steps = args.max_steps
     if args.max_steps_per_session is not None:
         config.max_steps_per_session = args.max_steps_per_session
+    if args.num_tokens is not None:
+        config.num_tokens_to_train = args.num_tokens
     if args.max_seq_len is not None:
         config.max_seq_len = args.max_seq_len
     if args.warmup_steps is not None:
         config.warmup_steps = args.warmup_steps
     if args.compile is not None:
         config.compile_model = args.compile
+
+    # Auto-compute max_steps from num_tokens_to_train if not explicitly set
+    if config.max_steps == 0:
+        tokens_per_step = config.batch_size * config.max_seq_len * config.grad_accum_steps
+        config.max_steps = config.num_tokens_to_train // tokens_per_step
+        print(f"Auto-computed max_steps: {config.max_steps:,} "
+              f"({config.num_tokens_to_train:,} tokens / {tokens_per_step:,} tokens per step)")
 
     # Device setup
     device = config.device if torch.cuda.is_available() else "cpu"
