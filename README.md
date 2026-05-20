@@ -1,5 +1,7 @@
 # LLM from Scratch (124M Parameters)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A clean, from-scratch implementation of a **124M-parameter decoder-only Transformer** in PyTorch. No `nn.Transformer`, no shortcuts — every layer is built manually. Trained on **FineWeb-Edu** with mixed precision, gradient accumulation, and automatic checkpoint resume.
 
 ## What's Inside
