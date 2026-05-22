@@ -1,6 +1,8 @@
 # LLM from Scratch (124M Parameters)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Model-yellow)](https://huggingface.co/avneeshjadhav04/llm-from-scratch-124m)
+[![Modal](https://img.shields.io/badge/🚀%20Modal-Live%20Demo-blue)](https://avneeshjadhav04--llm-api.modal.run)
 
 A clean, from-scratch implementation of a **124M-parameter decoder-only Transformer** in PyTorch. No `nn.Transformer`, no shortcuts — every layer is built manually. Trained on **FineWeb-Edu** with mixed precision, gradient accumulation, and automatic checkpoint resume.
 
@@ -56,7 +58,7 @@ Key args:
 
 ```bash
 python generate.py \
-    --checkpoint checkpoints/100m_step_50000.pt \
+    --checkpoint checkpoints/100m_best.pt \
     --prompt "The future of artificial intelligence is"
 ```
 
@@ -78,9 +80,9 @@ Both notebooks walk through setup, data prep, training, and checkpoint managemen
 | `n_layers` | 12 |
 | `n_heads` | 12 |
 | `d_ff` | 3,072 |
-| `max_seq_len` | 512 |
+| `max_seq_len` | 1024 |
 | `dropout` | 0.1 |
-| **Parameters** | **~124M** |
+| **Parameters** | **~124.44M** |
 
 Architecture: pre-norm Transformer with causal self-attention, GELU FFN, and weight-tied input/output embeddings.
 
@@ -106,17 +108,16 @@ Architecture: pre-norm Transformer with causal self-attention, GELU FFN, and wei
 
 ## Results
 
-Training on 2B tokens (~122K steps) with batch=4, seq=1024 on an A100:
+Final training run on 2B tokens (~30,517 steps) with `batch=16, seq=1024` on an A100-SXM4-80GB:
 
 | Step | Val Loss | Val PPL |
 |------|----------|---------|
-| 1K | ~5.4 | ~221 |
-| 5K | ~3.7 | ~40 |
-| 25K | ~3.1 | ~22 |
-| 50K | ~2.9 | ~18 |
-| 78K | ~2.6 | ~13 |
+| 1K | 5.04 | 154.0 |
+| 2K | 3.81 | 45.3 |
+| 3K | 3.44 | 31.1 |
+| 30K | **2.69** | **14.8** |
 
-> Actual results vary with batch size and sequence length. PPL continues to improve through ~120K steps.
+**Wall time:** ~5 hours. Trained to Chinchilla-optimal scale (~20× parameters in tokens).
 
 ## Project Structure
 
