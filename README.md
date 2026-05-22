@@ -2,8 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Live Demo:** [avneeshjadhav04--llm-api.modal.run](https://avneeshjadhav04--llm-api.modal.run)  
-**Model Weights:** [huggingface.co/avneeshjadhav04/llm-from-scratch](https://huggingface.co/avneeshjadhav04/llm-from-scratch)
+**🚀 Live Demo:** [avneeshjadhav04--llm-api.modal.run](https://avneeshjadhav04--llm-api.modal.run)
+
+**🤗 Model Weights:** [huggingface.co/avneeshjadhav04/llm-from-scratch](https://huggingface.co/avneeshjadhav04/llm-from-scratch)
 
 A clean, from-scratch implementation of a **124M-parameter decoder-only Transformer** in PyTorch. No `nn.Transformer`, no shortcuts — every layer is built manually. Trained on **FineWeb-Edu** with mixed precision, gradient accumulation, and automatic checkpoint resume.
 
