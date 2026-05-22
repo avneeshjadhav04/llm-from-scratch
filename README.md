@@ -1,8 +1,9 @@
 # LLM from Scratch (124M Parameters)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![HuggingFace](https://img.shields.io/badge/🤗%20HuggingFace-Model-yellow)](https://huggingface.co/avneeshjadhav04/llm-from-scratch-124m)
-[![Modal](https://img.shields.io/badge/🚀%20Modal-Live%20Demo-blue)](https://avneeshjadhav04--llm-api.modal.run)
+
+**Live Demo:** [avneeshjadhav04--llm-api.modal.run](https://avneeshjadhav04--llm-api.modal.run)  
+**Model Weights:** [huggingface.co/avneeshjadhav04/llm-from-scratch](https://huggingface.co/avneeshjadhav04/llm-from-scratch)
 
 A clean, from-scratch implementation of a **124M-parameter decoder-only Transformer** in PyTorch. No `nn.Transformer`, no shortcuts — every layer is built manually. Trained on **FineWeb-Edu** with mixed precision, gradient accumulation, and automatic checkpoint resume.
 
